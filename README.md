@@ -207,11 +207,10 @@ This repository includes intentional bugs and performance issues for demonstrati
 
 ## 📚 Documentation
 
-- [Architecture Details](docs/ARCHITECTURE.md)
-- [Chaos Scenarios Guide](docs/CHAOS_SCENARIOS.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Monitoring Setup](docs/MONITORING.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- 🔑 [**GitHub Setup Guide**](docs/GITHUB_SETUP.md) - **START HERE** - Configure secrets and CI/CD
+- 🏗️ [Architecture Details](docs/ARCHITECTURE.md)
+- 🔥 [Chaos Scenarios Guide](docs/CHAOS_SCENARIOS.md)
+- 🚀 [Deployment Guide](docs/DEPLOYMENT.md)
 
 ## 🤝 Contributing
 
