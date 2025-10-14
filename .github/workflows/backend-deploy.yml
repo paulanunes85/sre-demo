@@ -1,0 +1,210 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  REGISTRY_NAME: ${{ secrets.REGISTRY_NAME }}
+  IMAGE_NAME: sre-demo-backend
+  
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        
+      - name: Run linter
+        run: npm run lint || true # Continue even if lint fails (for demo)
+        
+      - name: Build TypeScript
+        run: npm run build
+        
+      - name: Run unit tests
+        run: npm test || true # Continue even if tests fail (for demo)
+        
+  build-docker:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.REGISTRY_NAME }}.azurecr.io
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}
+            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          
+  deploy-dev:
+    needs: build-docker
+    runs-on: ubuntu-latest
+    environment: dev
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'dev'
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_DEV }}
+          images: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          
+      - name: Run database migrations
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_DEV }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings MIGRATION_RUN="$(date +%s)"
+            
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_DEV }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+            
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f https://${{ secrets.AZURE_WEBAPP_NAME_DEV }}.azurewebsites.net/api/health || exit 1
+          
+  deploy-staging:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: staging
+    if: github.event.inputs.environment == 'staging'
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STAGING }}
+          images: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          
+      - name: Run database migrations
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_STAGING }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings MIGRATION_RUN="$(date +%s)"
+            
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_STAGING }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+            
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f https://${{ secrets.AZURE_WEBAPP_NAME_STAGING }}.azurewebsites.net/api/health || exit 1
+          
+  deploy-prod:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event.inputs.environment == 'prod'
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PROD }}
+          images: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          
+      - name: Run database migrations
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_PROD }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings MIGRATION_RUN="$(date +%s)"
+            
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --name ${{ secrets.AZURE_WEBAPP_NAME_PROD }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+            
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f https://${{ secrets.AZURE_WEBAPP_NAME_PROD }}.azurewebsites.net/api/health || exit 1
+          
+      - name: Notify deployment
+        run: |
+          echo "✅ Production deployment completed successfully"

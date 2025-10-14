@@ -1,0 +1,286 @@
+name: Infrastructure Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infrastructure-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  TF_VERSION: '1.5'
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive || true
+        
+      - name: Terraform Init
+        run: terraform init
+        
+      - name: Terraform Validate
+        run: terraform validate
+        
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var="environment=${{ github.event.inputs.environment || 'dev' }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -out=tfplan
+            
+      - name: Upload Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: terraform/tfplan
+          retention-days: 5
+          
+      - name: Post Plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📖
+            
+            <details>
+            <summary>Show Plan</summary>
+            
+            \`\`\`
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+            
+  terraform-apply:
+    name: Terraform Apply
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event.inputs.action == 'apply')
+    defaults:
+      run:
+        working-directory: ./terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Init
+        run: terraform init
+        
+      - name: Download Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan
+          path: terraform/
+          
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -var="environment=${{ github.event.inputs.environment || 'dev' }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -auto-approve
+            
+      - name: Terraform Output
+        id: output
+        run: terraform output -json
+        
+      - name: Save Outputs
+        run: |
+          echo '${{ steps.output.outputs.stdout }}' > terraform-outputs.json
+          
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: terraform/terraform-outputs.json
+          retention-days: 30
+          
+  drift-detection:
+    name: Detect Infrastructure Drift
+    runs-on: ubuntu-latest
+    # Run daily at 9 AM UTC
+    # Also run after manual deployments
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: ./terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Init
+        run: terraform init
+        
+      - name: Terraform Plan (Drift Detection)
+        id: drift
+        continue-on-error: true
+        run: |
+          terraform plan \
+            -var="environment=dev" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -detailed-exitcode
+            
+      - name: Check for Drift
+        if: steps.drift.outputs.exitcode == 2
+        run: |
+          echo "⚠️ Infrastructure drift detected!"
+          echo "exitcode=2" >> $GITHUB_OUTPUT
+          
+      - name: Create GitHub Issue for Drift
+        if: steps.drift.outputs.exitcode == 2
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 Infrastructure Drift Detected';
+            const body = `## Infrastructure Drift Alert
+            
+            Terraform has detected drift in the infrastructure configuration.
+            
+            **Environment:** dev
+            **Detection Time:** ${{ github.event.repository.updated_at }}
+            **Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            ### What is Infrastructure Drift?
+            Infrastructure drift occurs when the actual state of cloud resources differs from what is defined in Terraform code. This can happen when:
+            - Manual changes are made in the Azure Portal
+            - Resources are modified by other automation tools
+            - Configuration changes are applied outside of Terraform
+            
+            ### Required Actions
+            1. Review the Terraform plan in the workflow run
+            2. Identify what resources have changed
+            3. Either:
+               - Update Terraform code to match desired state
+               - Run \`terraform apply\` to restore Terraform state
+            
+            ### Related Scenario
+            This corresponds to **Scenario 10: Infrastructure Drift** in the chaos scenarios.
+            
+            ---
+            *This issue was automatically created by the Infrastructure Drift Detection workflow.*`;
+            
+            // Check if issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['infrastructure', 'drift']
+            });
+            
+            const existingIssue = issues.data.find(issue => issue.title === title);
+            
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['infrastructure', 'drift', 'automated']
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Drift detected again at ${{ github.event.repository.updated_at }}.\n\n[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+              });
+            }
+            
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    environment: destruction
+    if: github.event.inputs.action == 'destroy'
+    defaults:
+      run:
+        working-directory: ./terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Init
+        run: terraform init
+        
+      - name: Terraform Destroy
+        run: |
+          terraform destroy \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -auto-approve
