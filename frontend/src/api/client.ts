@@ -38,6 +38,18 @@ export interface User {
   avatar?: string;
   role: 'ADMIN' | 'MANAGER' | 'MEMBER';
   createdAt: string;
+  todos?: Todo[];
+  projectMemberships?: ProjectMember[];
+}
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  joinedAt: string;
+  user?: User;
+  project?: Project;
 }
 
 export interface Project {
@@ -50,6 +62,9 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   createdAt: string;
+  updatedAt: string;
+  todos?: Todo[];
+  members?: ProjectMember[];
 }
 
 export interface Todo {
