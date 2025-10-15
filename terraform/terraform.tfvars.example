@@ -1,0 +1,43 @@
+# Azure SRE Demo - Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your actual values
+
+# Project Configuration
+project_name         = "sre-demo"
+environment          = "dev"  # Options: dev, staging, prod
+location             = "eastus"
+resource_group_name  = "sre-demo-rg"
+
+# PostgreSQL Configuration
+postgres_admin_username = "adminuser"
+postgres_admin_password = "CHANGE_ME_STRONG_PASSWORD"  # Must match GitHub secret
+postgres_sku_name       = "B_Standard_B1ms"
+postgres_version        = "16"
+postgres_storage_mb     = 32768
+
+# Redis Configuration
+redis_sku_name = "Basic"
+redis_family   = "C"
+redis_capacity = 0
+
+# App Service Configuration
+app_service_sku_name = "B1"
+
+# Docker Configuration
+docker_registry_url = "YOUR_ACR_NAME.azurecr.io"  # e.g., sredemoacr.azurecr.io
+docker_image_name   = "sre-demo-backend"
+docker_image_tag    = "latest"
+
+# Frontend Configuration
+frontend_location = "East US 2"
+
+# Monitoring Configuration
+log_analytics_retention_days = 30
+alert_email                  = "your-email@example.com"
+
+# Resource Tags
+tags = {
+  Project     = "SRE Demo"
+  Owner       = "Your Name"
+  Environment = "dev"
+  ManagedBy   = "Terraform"
+}

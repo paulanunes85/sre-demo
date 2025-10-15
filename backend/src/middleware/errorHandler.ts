@@ -19,8 +19,8 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
-) => {
+  _next: NextFunction
+): void => {
   // Track exception in Application Insights
   trackException(err, {
     path: req.path,
@@ -42,7 +42,7 @@ export const errorHandler = (
   // INTENTIONAL BUG (Scenario 9): In development, expose full error details
   // This is a security risk and should be avoided in production
   if (process.env.NODE_ENV === 'development' && process.env.CHAOS_MISSING_ERROR_HANDLING_ENABLED === 'true') {
-    return res.status(statusCode).json({
+    res.status(statusCode).json({
       error: err.message,
       stack: err.stack,
       // SECURITY RISK: Exposing sensitive information
@@ -52,6 +52,7 @@ export const errorHandler = (
       path: req.path,
       body: req.body,
     });
+    return;
   }
 
   // Production error response

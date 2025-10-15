@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { todoApi, type Todo, type CreateTodoDto } from './api/client';
-import { Plus, Trash2, Check, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
 
 function App() {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
 
   // Fetch todos

@@ -10,7 +10,7 @@ variable "environment" {
 variable "location" {
   description = "Azure region for resources"
   type        = string
-  default     = "eastus"
+  default     = "centralus"
 }
 
 variable "resource_group_name" {
@@ -126,5 +126,5 @@ variable "alert_email" {
 variable "frontend_location" {
   description = "Static Web App location"
   type        = string
-  default     = "eastus2"
+  default     = "centralus"
 }

@@ -42,17 +42,8 @@ app.use('/api/todos', todoRoutes);
 app.use('/api/chaos', chaosRoutes);
 
 // Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'SRE Demo API',
-    version: '1.0.0',
-    status: 'operational',
-    endpoints: {
-      health: '/api/health',
-      todos: '/api/todos',
-      chaos: '/api/chaos',
-    },
-  });
+app.get('/', (_req, res) => {
+  res.json({ message: 'SRE Demo API is running!' });
 });
 
 // 404 handler

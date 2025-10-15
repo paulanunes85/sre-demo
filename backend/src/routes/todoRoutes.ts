@@ -416,7 +416,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     await cache.del(`todo:${id}`);
     await cache.delPattern('todos:list:*');
 
-    trackEvent('TodoToggled', { todoId: id, completed: todo.completed });
+    trackEvent('TodoToggled', { todoId: id, completed: String(todo.completed) });
 
     res.json(todo);
   } catch (error) {

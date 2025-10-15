@@ -59,6 +59,10 @@ resource "azurerm_postgresql_flexible_server" "main" {
   public_network_access_enabled = true
   
   tags = local.common_tags
+  
+  lifecycle {
+    ignore_changes = [zone]
+  }
 }
 
 # PostgreSQL Firewall Rule - Allow Azure Services
@@ -255,14 +259,14 @@ resource "azurerm_monitor_action_group" "main" {
 resource "azurerm_monitor_metric_alert" "high_cpu" {
   name                = "${var.project_name}-high-cpu-${local.name_suffix}"
   resource_group_name = azurerm_resource_group.main.name
-  scopes              = [azurerm_linux_web_app.backend.id]
+  scopes              = [azurerm_service_plan.main.id]
   description         = "Alert when CPU usage is above 80%"
   severity            = 2
   frequency           = "PT1M"
   window_size         = "PT5M"
   
   criteria {
-    metric_namespace = "Microsoft.Web/sites"
+    metric_namespace = "Microsoft.Web/serverfarms"
     metric_name      = "CpuPercentage"
     aggregation      = "Average"
     operator         = "GreaterThan"
@@ -280,14 +284,14 @@ resource "azurerm_monitor_metric_alert" "high_cpu" {
 resource "azurerm_monitor_metric_alert" "high_memory" {
   name                = "${var.project_name}-high-memory-${local.name_suffix}"
   resource_group_name = azurerm_resource_group.main.name
-  scopes              = [azurerm_linux_web_app.backend.id]
+  scopes              = [azurerm_service_plan.main.id]
   description         = "Alert when memory usage is above 85%"
   severity            = 2
   frequency           = "PT1M"
   window_size         = "PT5M"
   
   criteria {
-    metric_namespace = "Microsoft.Web/sites"
+    metric_namespace = "Microsoft.Web/serverfarms"
     metric_name      = "MemoryPercentage"
     aggregation      = "Average"
     operator         = "GreaterThan"
@@ -338,7 +342,7 @@ resource "azurerm_monitor_metric_alert" "slow_response" {
   
   criteria {
     metric_namespace = "Microsoft.Web/sites"
-    metric_name      = "ResponseTime"
+    metric_name      = "AverageResponseTime"
     aggregation      = "Average"
     operator         = "GreaterThan"
     threshold        = 2

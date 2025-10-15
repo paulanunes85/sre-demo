@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
+import { Priority } from '@prisma/client';
 import { createClient } from 'redis';
 import { logger } from '../utils/logger';
 import { trackEvent } from '../config/appInsights';
@@ -206,7 +207,7 @@ router.post('/seed-data', async (req: Request, res: Response) => {
       title: `Test Todo ${i + 1}`,
       description: `This is a test todo item for demonstration purposes. Item number ${i + 1}.`,
       completed: Math.random() > 0.5,
-      priority: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'][Math.floor(Math.random() * 4)],
+      priority: (['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as Priority[])[Math.floor(Math.random() * 4)],
     });
   }
 
