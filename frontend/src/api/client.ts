@@ -107,6 +107,8 @@ export interface CreateTodoDto {
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   dueDate?: string;
   tags?: string[];
+  projectId?: string;
+  assignedToId?: string;
 }
 
 export interface UpdateTodoDto {
@@ -115,6 +117,35 @@ export interface UpdateTodoDto {
   completed?: boolean;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   dueDate?: string;
+}
+
+export interface CreateProjectDto {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  status?: 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdateProjectDto {
+  name?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  status?: 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  authorId: string;
+  todoId: string;
+  author?: User;
 }
 
 // API Methods
@@ -282,6 +313,16 @@ export const projectApi = {
 
   getProjectStats: async (id: string) => {
     const response = await api.get(`/projects/${id}/stats`);
+    return response.data;
+  },
+
+  createProject: async (data: CreateProjectDto) => {
+    const response = await api.post<Project>('/projects', data);
+    return response.data;
+  },
+
+  updateProject: async (id: string, data: UpdateProjectDto) => {
+    const response = await api.put<Project>(`/projects/${id}`, data);
     return response.data;
   },
 };

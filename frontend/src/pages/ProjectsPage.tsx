@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { projectApi } from '../api/client';
 import { Link } from 'react-router-dom';
 import { FolderKanban, Users, CheckSquare, Plus } from 'lucide-react';
 import clsx from 'clsx';
+import { CreateProjectModal } from '../components/CreateProjectModal';
 
 export default function ProjectsPage() {
-  const { data: projectsData, isLoading } = useQuery({
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const { data: projectsData, isLoading, refetch } = useQuery({
     queryKey: ['projects'],
     queryFn: () => projectApi.getProjects(),
   });
@@ -42,7 +46,10 @@ export default function ProjectsPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
           <p className="text-gray-400">Manage and track all your projects</p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+        >
           <Plus className="w-5 h-5" />
           <span>New Project</span>
         </button>
@@ -134,6 +141,13 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

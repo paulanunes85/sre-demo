@@ -168,4 +168,127 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/projects
+ * Create a new project
+ */
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, description, icon, color, status, startDate, endDate } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Project name is required' });
+    }
+
+    const validStatuses = ['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    if (color && !/^#[0-9A-F]{6}$/i.test(color)) {
+      return res.status(400).json({ error: 'Invalid color format. Use hex format like #3B82F6' });
+    }
+
+    const project = await prisma.project.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        icon: icon || '📁',
+        color: color || '#3B82F6',
+        status: status || 'PLANNING',
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+      include: {
+        _count: {
+          select: {
+            todos: true,
+            members: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    logger.info(`Created project: ${project.id} - ${project.name}`);
+    res.status(201).json(project);
+  } catch (error) {
+    logger.error('Error creating project:', error);
+    res.status(500).json({ error: 'Failed to create project' });
+  }
+});
+
+/**
+ * PUT /api/projects/:id
+ * Update a project
+ */
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, description, icon, color, status, startDate, endDate } = req.body;
+
+    const existingProject = await prisma.project.findUnique({ where: { id } });
+    if (!existingProject) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const validStatuses = ['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    if (color && !/^#[0-9A-F]{6}$/i.test(color)) {
+      return res.status(400).json({ error: 'Invalid color format. Use hex format like #3B82F6' });
+    }
+
+    const project = await prisma.project.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(icon !== undefined && { icon }),
+        ...(color !== undefined && { color }),
+        ...(status !== undefined && { status }),
+        ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+      },
+      include: {
+        _count: {
+          select: {
+            todos: true,
+            members: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    logger.info(`Updated project: ${project.id} - ${project.name}`);
+    res.json(project);
+  } catch (error) {
+    logger.error('Error updating project:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
 export default router;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { todoApi } from '../api/client';
+import { todoApi, projectApi, userApi } from '../api/client';
 import { 
   Search, 
   Filter, 
@@ -13,15 +13,27 @@ import {
   AlertCircle
 } from 'lucide-react';
 import clsx from 'clsx';
+import { CreateTodoModal } from '../components/CreateTodoModal';
 
 export default function TodosPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const { data: todosData, isLoading } = useQuery({
+  const { data: todosData, isLoading, refetch } = useQuery({
     queryKey: ['todos'],
     queryFn: () => todoApi.getTodos(),
+  });
+
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectApi.getProjects(),
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userApi.getUsers(),
   });
 
   const todos = todosData?.todos || [];
@@ -71,7 +83,10 @@ export default function TodosPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Tasks</h1>
           <p className="text-gray-400">Manage and track all your tasks</p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+        >
           <Plus className="w-5 h-5" />
           <span>New Task</span>
         </button>
@@ -251,6 +266,15 @@ export default function TodosPage() {
           ))
         )}
       </div>
+
+      {/* Create Todo Modal */}
+      <CreateTodoModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+        projects={projectsData?.projects || []}
+        users={usersData?.users || []}
+      />
     </div>
   );
 }
