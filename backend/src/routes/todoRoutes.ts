@@ -16,6 +16,8 @@ const createTodoSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   dueDate: z.string().datetime().optional(),
   tags: z.array(z.string()).optional(),
+  projectId: z.string().uuid().optional(),
+  assignedToId: z.string().uuid().optional(),
 });
 
 const updateTodoSchema = z.object({
@@ -267,6 +269,8 @@ router.post('/', async (req: Request, res: Response) => {
         completed: validatedData.completed,
         priority: validatedData.priority,
         dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+        projectId: validatedData.projectId || null,
+        assigneeId: validatedData.assignedToId || null,
         metadata: {
           create: {
             viewCount: 0,
@@ -276,6 +280,23 @@ router.post('/', async (req: Request, res: Response) => {
       include: {
         tags: true,
         metadata: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            icon: true,
+          },
+        },
+        assignee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            role: true,
+          },
+        },
       },
     });
 
