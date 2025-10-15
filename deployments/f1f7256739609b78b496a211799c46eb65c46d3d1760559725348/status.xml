@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>f1f7256739609b78b496a211799c46eb65c46d3d1760559725348</id>
+  <author>paulanunes85</author>
+  <deployer>GitHub</deployer>
+  <authorEmail />
+  <message>{"type":"Deployment","sha":"f1f7256739609b78b496a211799c46eb65c46d3d","repoName":"paulanunes85/sre-demo","actor":"paulanunes85","slotName":"production"}</message>
+  <progress />
+  <status>Success</status>
+  <statusText />
+  <lastSuccessEndTime>2025-10-15T20:23:53.0495201Z</lastSuccessEndTime>
+  <receivedTime>2025-10-15T20:23:53.0495201Z</receivedTime>
+  <startTime>2025-10-15T20:23:53.0495201Z</startTime>
+  <endTime>2025-10-15T20:23:53.0495201Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

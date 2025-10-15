@@ -28,21 +28,7 @@ const logger = winston.createLogger({
   ],
 });
 
-// If we're in production, also log to file
-if (process.env.NODE_ENV === 'production') {
-  logger.add(
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-      format: winston.format.json(),
-    })
-  );
-  logger.add(
-    new winston.transports.File({
-      filename: 'logs/combined.log',
-      format: winston.format.json(),
-    })
-  );
-}
+// In containerized environments, we only log to console
+// The container orchestrator (Azure App Service) will handle log collection
 
 export { logger };
