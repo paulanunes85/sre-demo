@@ -24,8 +24,11 @@ RUN npm run build
 # Stage 2: Production
 FROM node:20-alpine AS production
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install required libraries for Prisma (OpenSSL 1.1 and dumb-init)
+RUN apk add --no-cache \
+    dumb-init \
+    openssl \
+    libc6-compat
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
