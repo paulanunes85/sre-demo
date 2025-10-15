@@ -19,16 +19,75 @@ model Todo {
   dueDate     DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  assigneeId  String?
+  projectId   String?
   
   // Relations
   tags        Tag[]
   metadata    TodoMetadata?
+  assignee    User?     @relation(fields: [assigneeId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id])
+  comments    Comment[]
+  attachments Attachment[]
   
   // INTENTIONAL BUG: Missing indexes for search performance
   // TODO: Add indexes for common queries
   // @@index([title]) // Uncomment to fix Scenario 3
   // @@index([completed])
   // @@index([createdAt])
+  @@index([assigneeId])
+  @@index([projectId])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique @db.VarChar(255)
+  name      String   @db.VarChar(100)
+  avatar    String?  @db.VarChar(500)
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  todos     Todo[]
+  comments  Comment[]
+  projects  ProjectMember[]
+  
+  @@index([email])
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  color       String   @db.VarChar(7)
+  icon        String?  @db.VarChar(50)
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  todos       Todo[]
+  members     ProjectMember[]
+  
+  @@index([status])
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
 }
 
 model Tag {
@@ -39,6 +98,35 @@ model Tag {
   createdAt DateTime @default(now())
   
   @@index([name])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  todoId    String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  todo      Todo     @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@index([todoId])
+  @@index([authorId])
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String   @db.VarChar(255)
+  fileUrl   String   @db.VarChar(500)
+  fileSize  Int      // in bytes
+  mimeType  String   @db.VarChar(100)
+  todoId    String
+  createdAt DateTime @default(now())
+  
+  todo      Todo     @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  
+  @@index([todoId])
 }
 
 model TodoMetadata {
@@ -60,4 +148,24 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
 }

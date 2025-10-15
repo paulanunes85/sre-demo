@@ -14,6 +14,8 @@ import { rateLimiter } from './middleware/rateLimiter';
 import todoRoutes from './routes/todoRoutes';
 import healthRoutes from './routes/healthRoutes';
 import chaosRoutes from './routes/chaosRoutes';
+import userRoutes from './routes/userRoutes';
+import projectRoutes from './routes/projectRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +42,8 @@ app.use(rateLimiter);
 app.use('/api/health', healthRoutes);
 app.use('/api/todos', todoRoutes);
 app.use('/api/chaos', chaosRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Root endpoint
 app.get('/', (_req, res) => {

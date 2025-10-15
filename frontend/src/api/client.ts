@@ -31,6 +31,27 @@ api.interceptors.response.use(
 );
 
 // Types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  role: 'ADMIN' | 'MANAGER' | 'MEMBER';
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon?: string;
+  status: 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+}
+
 export interface Todo {
   id: string;
   title: string;
@@ -40,8 +61,13 @@ export interface Todo {
   dueDate?: string;
   createdAt: string;
   updatedAt: string;
+  assigneeId?: string;
+  projectId?: string;
+  assignee?: User;
+  project?: Project;
   tags: Tag[];
   metadata?: TodoMetadata;
+  comments?: Comment[];
 }
 
 export interface Tag {
@@ -197,6 +223,50 @@ export const chaosApi = {
   // Reset environment
   reset: async () => {
     const response = await api.post('/chaos/reset');
+    return response.data;
+  },
+};
+
+// User API Methods
+export const userApi = {
+  getUsers: async (filters?: { role?: string; search?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.role) params.append('role', filters.role);
+    if (filters?.search) params.append('search', filters.search);
+    
+    const response = await api.get<{ users: User[]; count: number }>(`/users?${params}`);
+    return response.data;
+  },
+
+  getUser: async (id: string) => {
+    const response = await api.get<User>(`/users/${id}`);
+    return response.data;
+  },
+
+  getUserStats: async (id: string) => {
+    const response = await api.get(`/users/${id}/stats`);
+    return response.data;
+  },
+};
+
+// Project API Methods
+export const projectApi = {
+  getProjects: async (filters?: { status?: string; search?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+    
+    const response = await api.get<{ projects: Project[]; count: number }>(`/projects?${params}`);
+    return response.data;
+  },
+
+  getProject: async (id: string) => {
+    const response = await api.get<Project>(`/projects/${id}`);
+    return response.data;
+  },
+
+  getProjectStats: async (id: string) => {
+    const response = await api.get(`/projects/${id}/stats`);
     return response.data;
   },
 };
